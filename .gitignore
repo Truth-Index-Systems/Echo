@@ -55,4 +55,3 @@ app-example
 node_modules/
 
 # Environment
-.env
