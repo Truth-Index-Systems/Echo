@@ -1,0 +1,15 @@
+{
+  "cli": {
+    "version": ">= 20.5.0"
+  },
+  "build": {
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_OPENAI_API_KEY": "$EXPO_PUBLIC_OPENAI_API_KEY"
+      }
+    }
+  }
+}
