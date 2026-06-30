@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.echo.memory"
+      "package": "com.echo.memory",
+      "versionCode": 9
     },
     "web": {
       "output": "static",
