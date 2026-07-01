@@ -261,12 +261,17 @@ Task behaviour:
 - New tasks/reminders must be returned only by the memory extraction JSON in memory.tasks.
 - Allowed taskUpdates actions are: close, postpone, keep_open, ignore.
 - If the transcript sounds like an existing open task was completed, return action "close" with that taskId.
+- A single transcript can satisfy several active tasks. Return one taskUpdates entry per satisfied task; do not stop after the first match.
+- Example: active tasks "Ring Mum" and "Mention charity football tournament idea to Mum". Transcript "I rang Mum and mentioned the tournament" must close BOTH tasks.
 - If the transcript sounds like an existing open task is still outstanding, return "keep_open".
 - If it moves an existing task later, return "postpone".
 - If it is a brand-new reminder/task, return no taskUpdates here.
 - Completion phrases may be indirect: "I rang her", "that's sorted", "I've done both", "finished that", "booked it", "paid it", "sent it over".
 - For collective statements like "I've done them both" or "they're completed", update the most likely open tasks if context is clear.
-- Never create a new task from completion language.- If taskUpdates contains an existing taskId, it must be copied exactly from activeTaskSummaries.
+- For mixed completion statements, split intent by item. Example: if active task is "Get milk, crisps" and transcript says "managed to get milk, they didn't have crisps", return TWO updates with the same existing taskId: close taskTitle "milk" and keep_open taskTitle "crisps".
+- For partial task updates, taskTitle should name the specific item being changed, not the whole combined task.
+- Never create a new task from completion language.
+- If taskUpdates contains an existing taskId, it must be copied exactly from activeTaskSummaries.
 
 Examples:
 1. Open task: Call Wife. Transcript: "I rang her."

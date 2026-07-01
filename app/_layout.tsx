@@ -1,12 +1,60 @@
+import { useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as SplashScreen from "expo-splash-screen";
 import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
+import { EchoLoadingScreen } from "../src/components/EchoLoadingScreen";
+import { hydrateMemories } from "../src/stores/memoryStore";
+import { hydrateReminderSettings } from "../src/stores/reminderSettingsStore";
+import { hydrateTasks } from "../src/stores/taskStore";
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function RootLayout() {
+  const [isRestored, setIsRestored] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restoreEcho() {
+      await Promise.all([
+        hydrateMemories(),
+        hydrateTasks(),
+        hydrateReminderSettings(),
+        delay(650),
+      ]);
+
+      if (cancelled) return;
+
+      setIsRestored(true);
+      await SplashScreen.hideAsync().catch(() => undefined);
+
+      setTimeout(() => {
+        if (!cancelled) setShowIntro(false);
+      }, 1150);
+    }
+
+    void restoreEcho();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <GestureHandlerRootView style={styles.root}>
-      <Stack screenOptions={{ headerShown: false }} />
+      {!isRestored || showIntro ? (
+        <EchoLoadingScreen ready={isRestored} />
+      ) : (
+        <Stack screenOptions={{ headerShown: false, contentStyle: styles.stack }} />
+      )}
       <StatusBar style="light" />
     </GestureHandlerRootView>
   );
@@ -15,5 +63,9 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: "#000000",
+  },
+  stack: {
+    backgroundColor: "#000000",
   },
 });

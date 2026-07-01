@@ -81,12 +81,29 @@ export function MemoryNetworkRenderer({
     <Svg width={width} height={height} viewBox={viewBox} preserveAspectRatio="xMidYMid slice">
       <Defs>
         <RadialGradient id="memoryCoreGlow" cx="50%" cy="50%" r="50%">
-          <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.95" />
-          <Stop offset="45%" stopColor="#2F6BFF" stopOpacity={isSearching ? "0.46" : "0.26"} />
+          <Stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.98" />
+          <Stop offset="34%" stopColor="#8A5CFF" stopOpacity={isSearching ? "0.58" : "0.34"} />
+          <Stop offset="72%" stopColor="#148CFF" stopOpacity={isSearching ? "0.24" : "0.16"} />
           <Stop offset="100%" stopColor="#00E5FF" stopOpacity="0" />
+        </RadialGradient>
+        <RadialGradient id="networkNebula" cx="50%" cy="46%" r="72%">
+          <Stop offset="0%" stopColor="#8A5CFF" stopOpacity="0.18" />
+          <Stop offset="44%" stopColor="#148CFF" stopOpacity="0.07" />
+          <Stop offset="100%" stopColor="#000000" stopOpacity="0" />
         </RadialGradient>
       </Defs>
 
+      <Circle cx={worldCenter.x} cy={worldCenter.y} r={MEMORY_WORLD.width * 0.56} fill="url(#networkNebula)" />
+      {Array.from({ length: 120 }).map((_, index) => (
+        <Circle
+          key={`star-${index}`}
+          cx={((index * 97) % 1000) / 1000 * MEMORY_WORLD.width}
+          cy={((index * 193) % 1000) / 1000 * MEMORY_WORLD.height}
+          r={1.2 + ((index * 13) % 34) / 10}
+          fill={index % 5 === 0 ? "#8A5CFF" : index % 7 === 0 ? "#148CFF" : "#FFFFFF"}
+          opacity={isFocusedMode ? 0.06 : 0.08 + ((index * 23) % 42) / 100}
+        />
+      ))}
       <Circle cx={worldCenter.x} cy={worldCenter.y} r={MEMORY_WORLD.width * 0.42} fill="#00E5FF" opacity={isFocusedMode ? 0.012 : 0.035} />
       <Circle cx={worldCenter.x} cy={worldCenter.y} r={MEMORY_WORLD.width * 0.28} fill="#A855FF" opacity={isFocusedMode ? 0.01 : 0.025} />
 
@@ -256,7 +273,9 @@ export function MemoryNetworkRenderer({
         fill="url(#memoryCoreGlow)"
       />
       <Circle cx={worldCenter.x} cy={worldCenter.y} r={74 + Math.sin(tick * 0.08) * 4} fill="#2F6BFF" opacity={isSearching ? 0.38 : 0.22} />
-      <Circle cx={worldCenter.x} cy={worldCenter.y} r={46} fill="#FFFFFF" opacity={0.94} />
+      <Circle cx={worldCenter.x} cy={worldCenter.y} r={56} fill="#FFFFFF" opacity={0.96} />
+      <Circle cx={worldCenter.x} cy={worldCenter.y} r={86} fill="#8A5CFF" opacity={0.12 + interactionGlow * 0.12} />
+      <Circle cx={worldCenter.x} cy={worldCenter.y} r={118} fill="#148CFF" opacity={0.055 + interactionGlow * 0.055} />
 
       <SvgText
         x={worldCenter.x}

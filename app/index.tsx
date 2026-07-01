@@ -2,15 +2,17 @@ import { useMemo, useState } from "react";
 import {
   Alert,
   Dimensions,
+  Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { router } from "expo-router";
-import Svg, { Circle, Line, Text as SvgText } from "react-native-svg";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Svg, { Circle, Defs, Line, RadialGradient, Stop, Text as SvgText } from "react-native-svg";
 
 import GlowingRecordButton from "../src/components/GlowingRecordButton";
 import { EchoEngine } from "../src/components/echo-engine";
@@ -143,6 +145,24 @@ function MemoryNetworkBackground({ memories }: { memories: EchoMemory[] }) {
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id="homeNebula" cx="50%" cy="45%" r="70%">
+            <Stop offset="0%" stopColor="#8A5CFF" stopOpacity="0.24" />
+            <Stop offset="42%" stopColor="#148CFF" stopOpacity="0.09" />
+            <Stop offset="100%" stopColor="#000000" stopOpacity="0" />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={width * 0.52} cy={height * 0.34} r={width * 0.86} fill="url(#homeNebula)" />
+        {Array.from({ length: 32 }).map((_, index) => (
+          <Circle
+            key={`home-star-${index}`}
+            cx={((index * 67) % 100) * width / 100}
+            cy={((index * 41) % 78) * height / 100}
+            r={0.7 + ((index * 11) % 18) / 10}
+            fill="#FFFFFF"
+            opacity={0.05 + ((index * 19) % 40) / 100}
+          />
+        ))}
         <Circle
           cx={width * 0.5}
           cy={height * 0.48}
@@ -313,6 +333,12 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       <EchoEngine mode={mode} savedMemoryCount={memories.length} />
       <MemoryNetworkBackground memories={memories} />
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.54)", "rgba(0,0,0,0.92)"]}
+        locations={[0, 0.52, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
       <SafeAreaView style={styles.safe}>
         <ScrollView
@@ -320,14 +346,40 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.logo}>Echo</Text>
-            <Text style={styles.subtitle}>Your AI Memory</Text>
-            <Text style={styles.promise}>
-              Capture what matters.{"\n"}Echo remembers the rest.
-            </Text>
+            <LinearGradient
+              colors={[
+                "rgba(255,255,255,0.16)",
+                "rgba(21,31,75,0.62)",
+                "rgba(0,0,0,0.42)",
+              ]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.logoPanel}
+            >
+              <View style={styles.logoPanelGlow} />
+              <Image
+                source={require("../assets/images/echo-logo.png")}
+                style={styles.headerLogo}
+                resizeMode="contain"
+              />
+            </LinearGradient>
+            <View style={styles.headerCopy}>
+              <Text style={styles.logo}>ECHO</Text>
+              <Text style={styles.subtitle}>Your AI Memory</Text>
+            </View>
           </View>
 
-          <View style={styles.captureCard}>
+          <Text style={styles.promise}>
+            Capture what matters.{"\n"}Echo remembers the rest.
+          </Text>
+
+          <LinearGradient
+            colors={["rgba(16,25,67,0.88)", "rgba(7,9,28,0.94)", "rgba(0,0,0,0.9)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.captureCard}
+          >
+            <View style={styles.cardSheen} />
             <Text style={styles.captureTitle}>{"What's on your mind?"}</Text>
 
             <Text style={styles.captureHint}>
@@ -360,7 +412,7 @@ export default function HomeScreen() {
                   ? "Tap stop when you're finished."
                   : "Echo quietly remembers so you don't have to."}
             </Text>
-          </View>
+          </LinearGradient>
 
           <Pressable
             style={styles.quoteCard}
@@ -502,40 +554,98 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xxxl,
   },
   header: {
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  logoPanel: {
+    width: 92,
+    height: 92,
+    borderRadius: 30,
+    marginRight: spacing.md,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(185,199,255,0.34)",
+    overflow: "hidden",
+    shadowColor: colors.neuralPurple,
+    shadowOpacity: 0.78,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 18,
+  },
+  logoPanelGlow: {
+    position: "absolute",
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    backgroundColor: "rgba(0,229,255,0.10)",
+  },
+  headerLogo: {
+    width: 72,
+    height: 72,
+    shadowColor: colors.neuralPurple,
+    shadowOpacity: 0.9,
+    shadowRadius: 18,
+  },
+  headerCopy: {
+    flex: 1,
   },
   logo: {
-    ...typography.title,
-    color: colors.electricBlue,
+    color: colors.white,
+    fontSize: 34,
+    fontWeight: "300",
+    letterSpacing: 11,
   },
   subtitle: {
-    color: colors.white,
-    fontSize: 24,
+    color: colors.textSecondary,
+    fontSize: 16,
     fontWeight: "800",
-    marginTop: spacing.xs,
+    marginTop: 2,
+    letterSpacing: 0.6,
   },
   promise: {
-    ...typography.body,
-    color: colors.textSecondary,
-    marginTop: spacing.lg,
+    color: colors.white,
+    fontSize: 31,
+    fontWeight: "900",
+    lineHeight: 38,
+    letterSpacing: -0.7,
+    marginBottom: spacing.xl,
   },
   captureCard: {
-    borderRadius: 34,
+    borderRadius: 38,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.xxxl,
     alignItems: "center",
-    backgroundColor: "rgba(8,12,38,0.76)",
     borderWidth: 1,
-    borderColor: "rgba(168,85,255,0.45)",
+    borderColor: "rgba(185,199,255,0.22)",
+    overflow: "hidden",
+    shadowColor: colors.neuralPurple,
+    shadowOpacity: 0.42,
+    shadowRadius: 32,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 15,
+  },
+  cardSheen: {
+    position: "absolute",
+    top: -80,
+    right: -70,
+    width: 180,
+    height: 180,
+    borderRadius: 100,
+    backgroundColor: "rgba(138,92,255,0.16)",
   },
   captureTitle: {
-    ...typography.h1,
     color: colors.white,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: "900",
     textAlign: "center",
+    letterSpacing: -0.4,
   },
   captureHint: {
     color: colors.textSecondary,
@@ -548,6 +658,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "900",
     marginTop: spacing.xl,
+    textShadowColor: "rgba(255,82,246,0.58)",
+    textShadowRadius: 14,
   },
   smallText: {
     ...typography.small,
@@ -557,21 +669,24 @@ const styles = StyleSheet.create({
   },
   quoteCard: {
     marginTop: spacing.xl,
-    borderRadius: 24,
+    borderRadius: 28,
     padding: spacing.lg,
-    backgroundColor: "rgba(10,18,48,0.76)",
+    backgroundColor: "rgba(7,11,32,0.78)",
     borderWidth: 1,
-    borderColor: "rgba(168,85,255,0.38)",
+    borderColor: "rgba(168,85,255,0.42)",
     flexDirection: "row",
     alignItems: "center",
+    shadowColor: colors.memoryPink,
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
   },
   taskCard: {
     marginTop: spacing.md,
-    borderRadius: 24,
+    borderRadius: 28,
     padding: spacing.lg,
-    backgroundColor: "rgba(8,20,42,0.78)",
+    backgroundColor: "rgba(4,17,36,0.78)",
     borderWidth: 1,
-    borderColor: "rgba(0,229,255,0.28)",
+    borderColor: "rgba(38,216,255,0.28)",
     flexDirection: "row",
     alignItems: "center",
   },
@@ -683,8 +798,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: colors.electricBlue,
+    backgroundColor: colors.neuralPurple,
     marginRight: spacing.lg,
+    shadowColor: colors.cyan,
+    shadowOpacity: 0.72,
+    shadowRadius: 18,
   },
   memoryList: {
     gap: spacing.md,
@@ -702,8 +820,11 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: colors.electricBlue,
+    backgroundColor: colors.neuralPurple,
     marginRight: spacing.lg,
+    shadowColor: colors.cyan,
+    shadowOpacity: 0.52,
+    shadowRadius: 12,
   },
   emptyCopy: {
     flex: 1,

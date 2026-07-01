@@ -22,6 +22,12 @@ const CLOSE_WORDS = [
   "sent",
   "cancelled",
   "canceled",
+  "got",
+  "bought",
+  "picked up",
+  "collected",
+  "managed to get",
+  "managed to buy",
   "don't need",
   "do not need",
   "no longer need",
@@ -35,6 +41,14 @@ const KEEP_OPEN_WORDS = [
   "haven't",
   "have not",
   "need to still",
+  "didn't have",
+  "did not have",
+  "couldn't get",
+  "could not get",
+  "couldn't find",
+  "could not find",
+  "out of stock",
+  "sold out",
 ];
 
 const POSTPONE_WORDS = [
@@ -78,17 +92,52 @@ function textPartsForTask(task: Pick<EchoTaskEntity, "title" | "relatedPeople" |
     .toLowerCase();
 }
 
+function normaliseTaskToken(word: string) {
+  const clean = word.trim().toLowerCase();
+
+  const aliases: Record<string, string> = {
+    rang: "ring",
+    called: "call",
+    phoned: "call",
+    phone: "call",
+    telephoned: "call",
+    mentioning: "mention",
+    mentioned: "mention",
+    told: "mention",
+    discussed: "mention",
+    spoke: "speak",
+    spoken: "speak",
+    got: "get",
+    bought: "buy",
+    purchased: "buy",
+    picked: "pick",
+    collected: "collect",
+    emailed: "email",
+    messaged: "message",
+    sent: "send",
+    sorted: "sort",
+    completed: "complete",
+    finished: "finish",
+  };
+
+  if (aliases[clean]) return aliases[clean];
+  if (clean.endsWith("ing") && clean.length > 5) return clean.slice(0, -3);
+  if (clean.endsWith("ed") && clean.length > 4) return clean.slice(0, -2);
+  if (clean.endsWith("s") && clean.length > 4) return clean.slice(0, -1);
+
+  return clean;
+}
+
+function taskTokens(value: string) {
+  return normaliseMemoryEntity(value)
+    .split(" ")
+    .map(normaliseTaskToken)
+    .filter((word) => word.length > 2 && !["after", "before", "when", "then", "also", "with", "that", "this", "they", "them", "have", "been", "from"].includes(word));
+}
+
 function overlapScore(a: string, b: string) {
-  const aWords = new Set(
-    normaliseMemoryEntity(a)
-      .split(" ")
-      .filter((word) => word.length > 2)
-  );
-  const bWords = new Set(
-    normaliseMemoryEntity(b)
-      .split(" ")
-      .filter((word) => word.length > 2)
-  );
+  const aWords = new Set(taskTokens(a));
+  const bWords = new Set(taskTokens(b));
 
   if (aWords.size === 0 || bWords.size === 0) return 0;
 
@@ -156,8 +205,12 @@ export function findClosestTask(
 function inferConversationAction(transcript: string): TaskConversationUpdate["action"] {
   const text = transcript.toLowerCase();
 
-  if (KEEP_OPEN_WORDS.some((word) => text.includes(word))) return "keep_open";
-  if (CLOSE_WORDS.some((word) => text.includes(word))) return "close";
+  const hasKeepOpenSignal = KEEP_OPEN_WORDS.some((word) => text.includes(word));
+  const hasCloseSignal = CLOSE_WORDS.some((word) => text.includes(word));
+
+  if (hasKeepOpenSignal && hasCloseSignal) return "close";
+  if (hasKeepOpenSignal) return "keep_open";
+  if (hasCloseSignal) return "close";
   if (POSTPONE_WORDS.some((word) => text.includes(word))) return "postpone";
 
   return "create";
@@ -202,7 +255,11 @@ function uniqueTaskUpdates(updates: TaskConversationUpdate[]) {
   const output: TaskConversationUpdate[] = [];
 
   for (const update of updates) {
-    const key = update.taskId ?? `${update.action}:${update.taskTitle}`;
+    const key = [
+      update.taskId ?? "no-id",
+      update.action,
+      normaliseMemoryEntity(update.taskTitle ?? ""),
+    ].join(":");
     if (seen.has(key)) continue;
     seen.add(key);
     output.push(update);
@@ -277,6 +334,51 @@ function resolveProposedTaskUpdates(
   return uniqueTaskUpdates(accepted);
 }
 
+function inferExtraLifecycleUpdates(
+  transcript: string,
+  extractedTasks: EchoTask[],
+  existingTasks: EchoTaskEntity[],
+  currentUpdates: TaskConversationUpdate[]
+) {
+  const action = inferConversationAction(transcript);
+  if (action === "create") return [];
+
+  const alreadyUpdatedIds = new Set(
+    currentUpdates
+      .filter((update) => update.action !== "create" && update.action !== "ignore" && update.taskId)
+      .map((update) => update.taskId as string)
+  );
+
+  const collectiveReference = isCollectiveTaskReference(transcript);
+  const matches = findTaskActionMatches(transcript, extractedTasks, existingTasks);
+  const extraUpdates: TaskConversationUpdate[] = [];
+
+  for (const match of matches) {
+    if (alreadyUpdatedIds.has(match.task.id)) continue;
+
+    const confidentEnough = collectiveReference
+      ? match.confidence >= 0.18
+      : match.confidence >= 0.22;
+
+    if (!confidentEnough) continue;
+
+    extraUpdates.push({
+      action,
+      taskId: match.task.id,
+      taskTitle: match.task.title,
+      confidence: actionConfidence(action, transcript, Math.max(match.confidence, 0.24)),
+      reason:
+        action === "close"
+          ? "The transcript appears to satisfy this additional existing task as well."
+          : action === "postpone"
+            ? "The transcript appears to move this additional existing task later as well."
+            : "The transcript appears to keep this additional existing task open as well.",
+    });
+  }
+
+  return extraUpdates;
+}
+
 export function detectTaskConversationUpdates(
   transcript: string,
   extractedTasks: EchoTask[],
@@ -286,10 +388,16 @@ export function detectTaskConversationUpdates(
   const llmUpdates = resolveProposedTaskUpdates(proposedUpdates, existingTasks);
   const hasLifecycleUpdate = llmUpdates.some((update) => update.action !== "create");
 
-  // The Conversation Understanding Engine gets first refusal. It reasons over
-  // active tasks + recent conversational context, so it handles indirect updates
-  // like "I rang her", "done both", or "finished that" better than rigid rules.
-  if (hasLifecycleUpdate) return llmUpdates;
+  // The Conversation Understanding Engine gets first refusal, but it may satisfy
+  // more than one task in a single sentence. Keep all AI lifecycle decisions and
+  // add any other clearly matched active tasks instead of stopping after the
+  // first closure.
+  if (hasLifecycleUpdate) {
+    return uniqueTaskUpdates([
+      ...llmUpdates,
+      ...inferExtraLifecycleUpdates(transcript, extractedTasks, existingTasks, llmUpdates),
+    ]);
+  }
 
   const action = inferConversationAction(transcript);
   const updates: TaskConversationUpdate[] = [...llmUpdates];

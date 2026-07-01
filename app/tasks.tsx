@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";import {
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { router } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   closeTask,
@@ -116,7 +116,8 @@ function TaskRow({
               closeTask(task.id);
               onChanged();
             }}
-          >            <Text style={styles.actionPrimaryText}>Done</Text>
+          >
+            <Text style={styles.actionPrimaryText}>Done</Text>
           </Pressable>
 
           <Pressable style={styles.actionButton} onPress={handlePostpone}>
@@ -129,7 +130,8 @@ function TaskRow({
               keepTaskOpen(task.id);
               onChanged();
             }}
-          >            <Text style={styles.actionText}>Keep Open</Text>
+          >
+            <Text style={styles.actionText}>Keep Open</Text>
           </Pressable>
         </View>
       )}
@@ -192,13 +194,20 @@ export default function TasksScreen() {
     });
   };
 
-  const visibleTasks = useMemo(
-    () =>
-      tasks.filter((task) =>
-        taskFilter === "open" ? task.status !== "closed" : task.status === "closed"
-      ),
-    [tasks, taskFilter]
-  );
+  const visibleTasks = useMemo(() => {
+    if (taskFilter === "open") {
+      return tasks.filter((task) => task.status !== "closed");
+    }
+
+    return tasks
+      .filter((task) => task.status === "closed")
+      .sort((a, b) => {
+        const aTime = new Date(a.closedAt ?? a.updatedAt).getTime();
+        const bTime = new Date(b.closedAt ?? b.updatedAt).getTime();
+        return bTime - aTime;
+      })
+      .slice(0, 10);
+  }, [tasks, taskFilter]);
 
   const emptyTitle =
     taskFilter === "open" ? "No open tasks yet" : "No closed tasks yet";
@@ -232,7 +241,7 @@ export default function TasksScreen() {
               onPress={() => setTaskFilter("open")}
             />
             <TaskFilterButton
-              label="Closed"
+              label="Closed · last 10"
               active={taskFilter === "closed"}
               onPress={() => setTaskFilter("closed")}
             />

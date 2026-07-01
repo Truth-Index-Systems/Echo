@@ -7,7 +7,7 @@ export const MEMORY_WORLD = {
   minScale: 0.15,
   maxScale: 10,
 
-  initialScale: 0.22,
+  initialScale: 0.26,
 };
 
 export const worldCenter = {

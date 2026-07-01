@@ -1,6 +1,8 @@
 import { router } from "expo-router";
 import React from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
 
@@ -12,21 +14,29 @@ export function MemoryNetworkOverlay({ nodeCount }: Props) {
   return (
     <SafeAreaView pointerEvents="box-none" style={styles.overlay}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.circleButton} onPress={() => router.back()}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
-        <View>
-          <Text style={styles.title}>My Memory Network</Text>
+        <View style={styles.titleWrap}>
+          <Text style={styles.kicker}>ECHO</Text>
+          <Text style={styles.title}>Memory Network</Text>
         </View>
       </View>
+
+      <LinearGradient
+        pointerEvents="box-none"
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.62)", "rgba(0,0,0,0.92)"]}
+        locations={[0, 0.55, 1]}
+        style={styles.bottomFade}
+      />
 
       <View style={styles.footerPanel}>
         <Text style={styles.footerStrong}>
           {nodeCount === 0 ? "No network yet" : `${nodeCount} active memories`}
         </Text>
         <Text style={styles.footerSoft}>
-          Tasks quietly strengthen links between people, places, ideas and events.
+          Pinch and drag through your living memory. Search makes the right links light up.
         </Text>
       </View>
 
@@ -53,27 +63,47 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.lg,
+    gap: spacing.md,
   },
-  backButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  circleButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(8,12,38,0.72)",
+    backgroundColor: "rgba(10,12,33,0.72)",
+    shadowColor: colors.neuralPurple,
+    shadowOpacity: 0.36,
+    shadowRadius: 16,
   },
   backText: {
     color: colors.white,
-    fontSize: 36,
-    marginTop: -3,
+    fontSize: 38,
+    marginTop: -4,
+  },
+  titleWrap: {
+    flex: 1,
+  },
+  kicker: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 5,
   },
   title: {
     color: colors.white,
-    fontSize: 27,
+    fontSize: 24,
     fontWeight: "900",
+    letterSpacing: -0.5,
+  },
+  bottomFade: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 250,
   },
   footerPanel: {
     position: "absolute",
@@ -81,10 +111,10 @@ const styles = StyleSheet.create({
     right: spacing.xl,
     bottom: 28,
     padding: spacing.lg,
-    borderRadius: 26,
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(168,85,255,0.22)",
-    backgroundColor: "rgba(6,12,34,0.64)",
+    borderColor: "rgba(185,199,255,0.2)",
+    backgroundColor: "rgba(3,6,20,0.72)",
   },
   footerStrong: {
     color: colors.white,
@@ -101,12 +131,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: spacing.xl,
     right: spacing.xl,
-    bottom: 118,
+    bottom: 126,
     padding: spacing.xl,
     borderRadius: 28,
     borderWidth: 1,
-    borderColor: "rgba(0,229,255,0.18)",
-    backgroundColor: "rgba(6,12,34,0.62)",
+    borderColor: "rgba(38,216,255,0.18)",
+    backgroundColor: "rgba(3,6,20,0.72)",
   },
   emptyTitle: {
     color: colors.white,
