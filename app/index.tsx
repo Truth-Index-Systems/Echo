@@ -28,11 +28,11 @@ import {
   buildRecentMemoryContext,
   resolveConversationContinuity,
 } from "../src/services/conversationalContext";
-import { addMemory, useMemories } from "../src/stores/memoryStore";
+import { addMemory, getMemories, useMemories } from "../src/stores/memoryStore";
 import { getTasks, upsertTasksFromMemory, useTasks } from "../src/stores/taskStore";
 import type { EchoMemory } from "../src/types/memory";
 import { requestEchoNotificationPermission } from "../src/services/notificationService";
-import { syncEchoReminderNotifications } from "../src/services/reminderEngine";
+import { hasExactReminderTask, syncEchoReminderNotifications } from "../src/services/reminderEngine";
 import { updateReminderSettings, useReminderSettings } from "../src/stores/reminderSettingsStore";
 import {
   displayMemoryEntity,
@@ -287,7 +287,23 @@ export default function HomeScreen() {
 
       addMemory(memory);
       upsertTasksFromMemory(memory);
-      await syncEchoReminderNotifications(memories, getTasks(), reminderSettings);
+
+      const latestTasks = getTasks();
+      let latestReminderSettings = reminderSettings;
+
+      if (hasExactReminderTask(latestTasks) && reminderSettings.permissionStatus !== "granted") {
+        const permissionStatus = await requestEchoNotificationPermission();
+        latestReminderSettings = {
+          ...reminderSettings,
+          enabled: permissionStatus === "granted",
+          permissionStatus,
+          hasSeenReminderPrompt: true,
+          lastScheduledAt: permissionStatus === "granted" ? new Date().toISOString() : reminderSettings.lastScheduledAt,
+        };
+        updateReminderSettings(latestReminderSettings);
+      }
+
+      await syncEchoReminderNotifications(getMemories(), latestTasks, latestReminderSettings);
       setIsBusy(false);
     } catch (error) {
       setIsBusy(false);

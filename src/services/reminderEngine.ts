@@ -3,6 +3,21 @@ import { cancelEchoReminderNotifications, scheduleEchoNotification } from "./not
 
 const REMINDER_CHANNEL_ID = "echo-reminders";
 
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+};
+
 function dailyTrigger(hour: number, minute = 0) {
   return {
     type: "daily",
@@ -12,17 +27,100 @@ function dailyTrigger(hour: number, minute = 0) {
   } as any;
 }
 
-function nextDateTrigger(hour: number, minute = 0) {
-  const now = new Date();
-  const date = new Date();
-  date.setHours(hour, minute, 0, 0);
-  if (date <= now) date.setDate(date.getDate() + 1);
-
+function dateTrigger(date: Date) {
   return {
     type: "date",
     date,
     channelId: REMINDER_CHANNEL_ID,
   } as any;
+}
+
+function nextDateAt(hour: number, minute = 0) {
+  const now = new Date();
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  if (date <= now) date.setDate(date.getDate() + 1);
+  return date;
+}
+
+function normalizeHourForReminder(rawHour: number, label: string) {
+  const lower = label.toLowerCase();
+  const hasPm = /\b(pm|p\.m\.|evening|tonight|afternoon)\b/.test(lower);
+  const hasAm = /\b(am|a\.m\.|morning)\b/.test(lower);
+
+  if (hasPm && rawHour < 12) return rawHour + 12;
+  if (hasAm && rawHour === 12) return 0;
+
+  if (!hasAm && !hasPm && rawHour >= 1 && rawHour <= 7) {
+    return rawHour + 12;
+  }
+
+  return rawHour;
+}
+
+function parseHour(value: string) {
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric;
+  return NUMBER_WORDS[value.toLowerCase()] ?? null;
+}
+
+function parseDayOffset(label: string) {
+  const lower = label.toLowerCase();
+  if (/\btomorrow\b/.test(lower)) return 1;
+  return 0;
+}
+
+function withDayOffset(date: Date, label: string) {
+  const offset = parseDayOffset(label);
+  if (offset > 0) date.setDate(date.getDate() + offset);
+  return date;
+}
+
+export function parseExactReminderDate(label?: string | null) {
+  if (!label) return null;
+
+  const text = label
+    .toLowerCase()
+    .replace(/[’']/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return null;
+
+  const halfMatch = text.match(/\bhalf\s+(?:past\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d{1,2})\b/);
+  if (halfMatch) {
+    const parsedHour = parseHour(halfMatch[1]);
+    if (parsedHour !== null && parsedHour >= 1 && parsedHour <= 23) {
+      const hour = normalizeHourForReminder(parsedHour, text);
+      const date = withDayOffset(nextDateAt(hour, 30), text);
+      if (date.getTime() > Date.now() + 5000) return date;
+    }
+  }
+
+  const colonMatch = text.match(/\b(?:at\s*)?(\d{1,2})[:.](\d{2})\s*(am|pm|a\.m\.|p\.m\.)?\b/);
+  if (colonMatch) {
+    const rawHour = Number(colonMatch[1]);
+    const minute = Number(colonMatch[2]);
+    if (rawHour >= 0 && rawHour <= 23 && minute >= 0 && minute <= 59) {
+      const suffix = colonMatch[3] ? ` ${colonMatch[3]}` : "";
+      const hour = normalizeHourForReminder(rawHour, `${text}${suffix}`);
+      const date = withDayOffset(nextDateAt(hour, minute), text);
+      if (date.getTime() > Date.now() + 5000) return date;
+    }
+  }
+
+  const oclockMatch = text.match(/\b(?:at\s*)?(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|\d{1,2})\s*(am|pm|a\.m\.|p\.m\.|oclock|o clock)?\b/);
+  if (oclockMatch && /\b(at|am|pm|a\.m\.|p\.m\.|oclock|o clock|morning|afternoon|evening|tonight|tomorrow)\b/.test(text)) {
+    const parsedHour = parseHour(oclockMatch[1]);
+    if (parsedHour !== null && parsedHour >= 0 && parsedHour <= 23) {
+      const suffix = oclockMatch[2] ? ` ${oclockMatch[2]}` : "";
+      const hour = normalizeHourForReminder(parsedHour, `${text}${suffix}`);
+      const date = withDayOffset(nextDateAt(hour, 0), text);
+      if (date.getTime() > Date.now() + 5000) return date;
+    }
+  }
+
+  return null;
 }
 
 function styleDailyLimit(style: EchoReminderSettings["style"]) {
@@ -48,11 +146,38 @@ function taskBody(task: EchoTaskEntity) {
       : "Echo still remembers this for later.";
   }
 
+  if (task.dueLabel) {
+    return `You asked Echo to remind you: ${task.title}.`;
+  }
+
   if (task.timesMentioned > 1) {
     return `You mentioned this ${task.timesMentioned} times and it is still open.`;
   }
 
   return "You told Echo this mattered, and it is still open.";
+}
+
+function exactReminderCandidates(tasks: EchoTaskEntity[], settings: EchoReminderSettings): Array<EchoReminderCandidate & { scheduledFor: Date }> {
+  if (!settings.taskRemindersEnabled) return [];
+
+  return tasks
+    .filter((task) => task.status !== "closed" && task.reminderEnabled)
+    .map((task) => {
+      const scheduledFor = parseExactReminderDate(task.dueAt ?? task.dueLabel);
+      if (!scheduledFor) return null;
+
+      return {
+        id: `echo-exact-task-${task.id}`,
+        type: "task" as const,
+        title: `Echo reminder: ${task.title}`,
+        body: taskBody(task),
+        taskId: task.id,
+        scheduleLabel: task.dueLabel ?? "Scheduled reminder",
+        priority: 100,
+        scheduledFor,
+      };
+    })
+    .filter(Boolean) as Array<EchoReminderCandidate & { scheduledFor: Date }>;
 }
 
 export function buildReminderCandidates(
@@ -91,6 +216,8 @@ export function buildReminderCandidates(
   }
 
   for (const task of openTasks.slice(0, styleDailyLimit(settings.style))) {
+    if (parseExactReminderDate(task.dueAt ?? task.dueLabel)) continue;
+
     candidates.push({
       id: `echo-task-${task.id}`,
       type: task.status === "postponed" ? "postponed_task" : "task",
@@ -105,6 +232,12 @@ export function buildReminderCandidates(
   return candidates.sort((a, b) => b.priority - a.priority);
 }
 
+export function hasExactReminderTask(tasks: EchoTaskEntity[]) {
+  return tasks.some(
+    (task) => task.status !== "closed" && task.reminderEnabled && Boolean(parseExactReminderDate(task.dueAt ?? task.dueLabel))
+  );
+}
+
 export async function syncEchoReminderNotifications(
   memories: EchoMemory[],
   tasks: EchoTaskEntity[],
@@ -117,6 +250,7 @@ export async function syncEchoReminderNotifications(
 
   await cancelEchoReminderNotifications();
 
+  const exactTaskReminders = exactReminderCandidates(tasks, settings);
   const candidates = buildReminderCandidates(memories, tasks, settings);
   const morning = candidates.find((candidate) => candidate.type === "morning_brief");
   const evening = candidates.find((candidate) => candidate.type === "evening_reflection");
@@ -144,13 +278,30 @@ export async function syncEchoReminderNotifications(
     });
   }
 
+  for (const reminder of exactTaskReminders) {
+    await scheduleEchoNotification({
+      identifier: reminder.id,
+      title: reminder.title,
+      body: reminder.body,
+      data: { type: reminder.type, taskId: reminder.taskId ?? "" },
+      trigger: dateTrigger(reminder.scheduledFor),
+    });
+
+    console.log("[Echo Reminders] Scheduled exact reminder", {
+      taskId: reminder.taskId,
+      title: reminder.title,
+      due: reminder.scheduleLabel,
+      scheduledFor: reminder.scheduledFor.toISOString(),
+    });
+  }
+
   for (const [index, reminder] of taskReminders.entries()) {
     await scheduleEchoNotification({
       identifier: reminder.id,
       title: reminder.title,
       body: reminder.body,
       data: { type: reminder.type, taskId: reminder.taskId ?? "" },
-      trigger: nextDateTrigger(10 + index * 2, 0),
+      trigger: dateTrigger(nextDateAt(10 + index * 2, 0)),
     });
   }
 }

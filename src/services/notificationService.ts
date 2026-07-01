@@ -5,7 +5,8 @@ Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldShowBanner: true,
-    shouldShowList: true,    shouldPlaySound: false,
+    shouldShowList: true,
+    shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });
@@ -28,7 +29,7 @@ export async function configureAndroidNotificationChannel() {
 
   await Notifications.setNotificationChannelAsync("echo-reminders", {
     name: "Echo reminders",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
     lightColor: "#00E5FF",
   });
@@ -72,7 +73,7 @@ export async function scheduleEchoNotification(args: {
       title: args.title,
       body: args.body,
       data: args.data ?? {},
-      sound: false,
+      sound: true,
     },
     trigger: normalizeEchoTrigger(args.trigger),
   });

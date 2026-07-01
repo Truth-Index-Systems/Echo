@@ -6,9 +6,10 @@ import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { EchoLoadingScreen } from "../src/components/EchoLoadingScreen";
-import { hydrateMemories } from "../src/stores/memoryStore";
-import { hydrateReminderSettings } from "../src/stores/reminderSettingsStore";
-import { hydrateTasks } from "../src/stores/taskStore";
+import { syncEchoReminderNotifications } from "../src/services/reminderEngine";
+import { getMemories, hydrateMemories } from "../src/stores/memoryStore";
+import { getReminderSettings, hydrateReminderSettings } from "../src/stores/reminderSettingsStore";
+import { getTasks, hydrateTasks } from "../src/stores/taskStore";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -30,6 +31,14 @@ export default function RootLayout() {
         hydrateReminderSettings(),
         delay(650),
       ]);
+
+      await syncEchoReminderNotifications(
+        getMemories(),
+        getTasks(),
+        getReminderSettings()
+      ).catch((error) => {
+        console.warn("[Echo Reminders] Failed to resync on launch", error);
+      });
 
       if (cancelled) return;
 
