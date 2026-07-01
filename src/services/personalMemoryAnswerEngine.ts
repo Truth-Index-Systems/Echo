@@ -108,7 +108,7 @@ export async function answerFromPersonalMemory(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [

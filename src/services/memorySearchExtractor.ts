@@ -137,7 +137,7 @@ export async function extractMemorySearchQuery(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       temperature: 0.05,
       response_format: { type: "json_object" },
       messages: [
